@@ -107,7 +107,7 @@ describe("Condominium", function () {
     await expect(contract.setCounselor(resident.address, true)).to.be.revertedWith("The counselor must be a resident");
   });
 
-  it("Should set mahager", async function () {
+  /*it("Should set mahager", async function () {
     const { contract, manager, resident } = await loadFixture(deployFixture);
 
     await contract.setManager(resident.address);
@@ -127,7 +127,7 @@ describe("Condominium", function () {
     const { contract, manager, resident } = await loadFixture(deployFixture);
 
     await expect(contract.setManager("0x0000000000000000000000000000000000000000")).to.be.revertedWith("The address must be valid");
-  });
+  });*/
 
   it("Should add topic (manager)", async function () {
     const { contract, manager, resident } = await loadFixture(deployFixture);
