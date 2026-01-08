@@ -17,6 +17,14 @@ library CondominiumLib {
         ABSTENTION
     }// 0,1,2,3
 
+    enum Category {
+        DECISION,
+        SPENT,
+        CHANGE_QUOTA,
+        CHANGE_MANAGER
+    }// 0,1,2,3
+
+
     struct Topic {
         string title;
         string description;
@@ -24,6 +32,9 @@ library CondominiumLib {
         uint256 createDate; // criação da votação
         uint256 startDate; // inicio da votação
         uint256 endDate; // fim da votação
+        Category category;
+        uint amount;
+        address responsible;
     }
 
     struct Vote {

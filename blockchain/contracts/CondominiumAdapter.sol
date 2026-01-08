@@ -34,8 +34,8 @@ contract CondominiumAdapter {
     }
   
     // Todo: mudar
-    function addTopic(string memory title, string memory description) external {
-        return implementation.addTopic(title, description);
+    function addTopic(string memory title, string memory description, Lib.Category category, uint amount, address responsible) external {
+        return implementation.addTopic(title, description, category, amount, responsible);
     }
 
     //Todo: editar topico
@@ -54,7 +54,6 @@ contract CondominiumAdapter {
         return implementation.vote(title, option);
     }
 
-    //todo: mudar
     function closeVoting(string memory title) external {
         return implementation.closeVoting(title);
     }

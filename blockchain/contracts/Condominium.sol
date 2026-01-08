@@ -10,6 +10,8 @@ import { CondominiumLib as Lib } from "./CondominiumLib.sol";
 contract Condominium is ICondominium {
 
     address public manager;  // Ownable
+    uint public monthlyQuota = 0.01 ether; // Mensalidade do condominio
+
     mapping (uint16 => bool) public residences; // unidades => true
     mapping (address => uint16) public residents; // Wallet => unidade (numero da unidade)
     mapping (address => bool) public counselors; // conselheiro => true
@@ -59,10 +61,7 @@ contract Condominium is ICondominium {
 
     function removeResident(address resident) external onlyManager {
         require(!counselors[resident], "A counselor cannot be removed");
-        delete residents[resident];
-
-        if(counselors[resident])
-            delete counselors[resident];
+        delete residents[resident];        
     }
 
     function setCounselor(address resident, bool isEntering) external onlyManager {
@@ -84,8 +83,11 @@ contract Condominium is ICondominium {
         return getTopic(title).createDate > 0;
     }
 
-    function addTopic(string memory title, string memory description) external onlyResidents {
+    function addTopic(string memory title, string memory description, Lib.Category category, uint amount, address responsible) external onlyResidents {
         require(!topicExists(title), "This topic already exists");
+        if(amount > 0) {
+            require(category == Lib.Category.CHANGE_QUOTA || category == Lib.Category.SPENT, "Wrong category");
+        }
 
         Lib.Topic memory newTopic = Lib.Topic ({
             title: title,
@@ -93,7 +95,10 @@ contract Condominium is ICondominium {
             createDate: block.timestamp,
             startDate: 0,
             endDate: 0,
-            status: Lib.Status.IDLE
+            status: Lib.Status.IDLE,
+            category: category,
+            amount: amount,
+            responsible: responsible != address(0) ? responsible : tx.origin
         });
 
         topics[keccak256(bytes(title))] = newTopic;
@@ -129,8 +134,7 @@ contract Condominium is ICondominium {
         Lib.Vote[] memory votes = votings[topicId];
 
         for(uint8 i=0; i < votes.length; i++){
-            if(votes[i].residence == residence)
-                require(false, "The residence should vote only once");
+            require(votes[i].residence != residence, "The residence should vote only once");
         }
 
         Lib.Vote memory newVote = Lib.Vote ({
@@ -148,6 +152,21 @@ contract Condominium is ICondominium {
         require(topic.createDate > 0, "The topic does not exists");
         require(topic.status == Lib.Status.VOTING, "Only VOTING topics can be closed");
 
+        uint8 minimumVotes = 5;
+
+        // Estipula o numero minimo de votos para cada categoria
+        if(topic.category == Lib.Category.SPENT) {
+            minimumVotes = 10;
+        }
+        else if(topic.category == Lib.Category.CHANGE_MANAGER) { 
+            minimumVotes = 15;
+        }
+        else if(topic.category == Lib.Category.CHANGE_QUOTA) {
+            minimumVotes = 20;
+        }
+
+        require(numberOfVotes(title) >= minimumVotes, "You cannot finish a voting without the minimum votes");
+
         uint8 approved = 0;
         uint8 denied = 0;
         uint8 abstentions = 0;
@@ -163,17 +182,25 @@ contract Condominium is ICondominium {
                 abstentions++;
         }
 
-        if(approved > denied) {
-            topics[topicId].status = Lib.Status.APPROVED;
-        }
-        else {
-            topics[topicId].status = Lib.Status.DENIED; 
-        }
+        // Verifica se a votação foi aprovada ou não
+        Lib.Status newStatus = approved > denied
+            ? Lib.Status.APPROVED
+            : Lib.Status.DENIED;
 
+        topics[topicId].status = newStatus;
         topics[topicId].endDate = block.timestamp;
+
+        if(newStatus == Lib.Status.APPROVED) {
+            if(topic.category == Lib.Category.CHANGE_QUOTA) {
+                monthlyQuota = topic.amount;
+            }
+            else if(topic.category == Lib.Category.CHANGE_MANAGER) {
+                manager = topic.responsible;
+            }
+        }
     }
 
-    function numberOfVotes(string memory title) external view returns(uint256) {
+    function numberOfVotes(string memory title) public view returns(uint256) {
         bytes32 topicId = keccak256(bytes(title));
         return votings[topicId].length;
     }

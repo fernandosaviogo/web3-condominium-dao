@@ -1,6 +1,8 @@
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
+import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers"; 
 import { expect } from "chai";
 import hre from "hardhat";
+import { CondominiumAdapter } from "../typechain-types";
 
 describe("CondominiumAdapter", function () {
 
@@ -16,6 +18,29 @@ describe("CondominiumAdapter", function () {
     YES = 1,
     NO = 2,
     ABSTENTION = 3
+  }
+
+  enum Category {
+    DECISION = 0,
+    SPENT = 1,
+    CHANGE_QUOTA = 2,
+    CHANGE_MANAGER = 3
+  }
+
+  // função para adicionar n moradores
+  async function addResidents(adapter: CondominiumAdapter, count: number, accounts: SignerWithAddress[]) {
+    for(let i=1; i <= count; i++) {
+      const residence = (1000 * Math.ceil(i / 25)) + (100 * Math.ceil(i / 5)) + (i - (5 * Math.floor((i-1) / 5)));
+      await adapter.addResident(accounts[i-1].address, residence);
+    }
+  }
+
+  // função para adicionar n votos
+  async function addVotes(adapter: CondominiumAdapter, count: number, accounts: SignerWithAddress[]) {
+    for(let i=1; i <= count; i++) {
+      const instance = adapter.connect(accounts[i-1]);
+      await instance.vote("Topic 1", Options.YES);
+    }
   }
 
   async function deployAdapterFixture() {
@@ -97,9 +122,9 @@ describe("CondominiumAdapter", function () {
 
     await adapter.upgrade(contract.getAddress());
 
-    await adapter.addTopic("topic 1", "description 1");    
+    await adapter.addTopic("Topic 1", "description 1", Category.DECISION, 0, manager.address);    
 
-    expect(await contract.topicExists("topic 1")).to.equal(true);
+    expect(await contract.topicExists("Topic 1")).to.equal(true);
   });
 
   it("Should remove topic", async function () {
@@ -108,10 +133,10 @@ describe("CondominiumAdapter", function () {
 
     await adapter.upgrade(contract.getAddress());
 
-    await adapter.addTopic("topic 1", "description 1");
-    await adapter.removeTopic("topic 1");
+    await adapter.addTopic("Topic 1", "description 1", Category.DECISION, 0, manager.address);
+    await adapter.removeTopic("Topic 1");
 
-    expect(await contract.topicExists("topic 1")).to.equal(false);
+    expect(await contract.topicExists("Topic 1")).to.equal(false);
   });
 
   it("Should open voting", async function () {
@@ -120,9 +145,9 @@ describe("CondominiumAdapter", function () {
 
     await adapter.upgrade(contract.getAddress());
 
-    await adapter.addTopic("topic 1", "description 1");  
-    await adapter.openVoting("topic 1");
-    const topic = await contract.getTopic("topic 1");
+    await adapter.addTopic("Topic 1", "description 1", Category.DECISION, 0, manager.address);  
+    await adapter.openVoting("Topic 1");
+    const topic = await contract.getTopic("Topic 1");
 
     await expect(topic.status).to.equal(Status.VOTING);
   });
@@ -135,13 +160,13 @@ describe("CondominiumAdapter", function () {
 
     await adapter.addResident(accounts[1].address, 1301);
 
-    await adapter.addTopic("topic 1", "description 1");  
-    await adapter.openVoting("topic 1");
+    await adapter.addTopic("Topic 1", "description 1", Category.DECISION, 0, manager.address);  
+    await adapter.openVoting("Topic 1");
     
     const instance = adapter.connect(accounts[1]);
-    await instance.vote("topic 1", Options.YES);
+    await instance.vote("Topic 1", Options.YES);
 
-    expect(await contract.numberOfVotes("topic 1")).to.equal(1);
+    expect(await contract.numberOfVotes("Topic 1")).to.equal(1);
   });
 
   it("Should close voting", async function () {
@@ -150,18 +175,15 @@ describe("CondominiumAdapter", function () {
 
     await adapter.upgrade(contract.getAddress());
 
-    await adapter.addResident(accounts[1].address, 1301);
+    await addResidents(adapter, 5, accounts);
 
-    await adapter.addTopic("topic 1", "description 1");  
-    await adapter.openVoting("topic 1");
+    await adapter.addTopic("Topic 1", "description 1", Category.DECISION, 0, manager.address);  
+    await adapter.openVoting("Topic 1");
 
-    await contract.vote("topic 1", Options.YES)
-    
-    const instance = adapter.connect(accounts[1]);
-    await instance.vote("topic 1", Options.YES);
+    await addVotes(adapter, 5, accounts);
 
-    await adapter.closeVoting("topic 1");
-    const topic = await contract.getTopic("topic 1");
+    await adapter.closeVoting("Topic 1");
+    const topic = await contract.getTopic("Topic 1");
 
     await expect(topic.status).to.equal(Status.APPROVED);
   });
