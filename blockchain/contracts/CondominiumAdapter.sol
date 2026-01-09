@@ -23,6 +23,7 @@ contract CondominiumAdapter {
 
     function upgrade(address newImplementation) external {
         require(msg.sender == owner, "You do not have permission");
+        require(newImplementation != address(0), "Invalid address");
         implementation = ICondominium(newImplementation);
     }
 
@@ -62,7 +63,9 @@ contract CondominiumAdapter {
         return implementation.closeVoting(title);
     }
 
-    // Todo: pay quota
-
+    function payQuota(uint16 residentId) external payable upgraded {
+        return implementation.payQuota{value: msg.value}(residentId);
+    }
+    
     // Todo: transfer   
 }

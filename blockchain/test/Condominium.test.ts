@@ -30,8 +30,11 @@ describe("Condominium", function () {
   // função para adicionar n moradores
   async function addResidents(contract: Condominium, count: number, accounts: SignerWithAddress[]) {
     for(let i=1; i <= count; i++) {
-      const residence = (1000 * Math.ceil(i / 25)) + (100 * Math.ceil(i / 5)) + (i - (5 * Math.floor((i-1) / 5)));
-      await contract.addResident(accounts[i-1].address, residence);
+      const residenceId = (1000 * Math.ceil(i / 25)) + (100 * Math.ceil(i / 5)) + (i - (5 * Math.floor((i-1) / 5)));
+      await contract.addResident(accounts[i-1].address, residenceId);
+
+      const instance = contract.connect(accounts[i-1]);
+      await instance.payQuota(residenceId, { value: ethers.parseEther("0.01") });
     }
   }
   
@@ -260,7 +263,7 @@ describe("Condominium", function () {
   it("Should add topic (resident)", async function () {
     const { contract, manager, accounts} = await loadFixture(deployFixture);
 
-    await contract.addResident(accounts[1].address, 2102);
+    await addResidents(contract, 1, [accounts[1]]);
 
     const instance = contract.connect(accounts[1]);
 
@@ -324,7 +327,7 @@ describe("Condominium", function () {
   it("Should vote", async function () {
     const { contract, manager, accounts} = await loadFixture(deployFixture);
 
-    await contract.addResident(accounts[1].address, 2102);
+    await addResidents(contract, 1, [accounts[1]]);
     await contract.addTopic("Topic 1", "Descripyion 1", Category.DECISION, 0, manager.address);
     await contract.openVoting("Topic 1");
 
@@ -337,7 +340,7 @@ describe("Condominium", function () {
   it("Should NOT vote (duplicated)", async function () {
     const { contract, manager, accounts} = await loadFixture(deployFixture);
 
-    await contract.addResident(accounts[1].address, 2102);
+    await addResidents(contract, 1, [accounts[1]]);
     await contract.addTopic("Topic 1", "Descripyion 1", Category.DECISION, 0, manager.address);
     await contract.openVoting("Topic 1");
 
@@ -347,10 +350,22 @@ describe("Condominium", function () {
     await expect(instance.vote("Topic 1", Options.YES)).to.be.revertedWith("The residence should vote only once");
   });
 
-  it("Should NOT vote (status)", async function () {
+  it("Should NOT vote (defaulter)", async function () {
     const { contract, manager, accounts} = await loadFixture(deployFixture);
 
     await contract.addResident(accounts[1].address, 2102);
+    await contract.addTopic("Topic 1", "Descripyion 1", Category.DECISION, 0, manager.address);
+    await contract.openVoting("Topic 1");
+
+    const instance = contract.connect(accounts[1]);
+    
+    await expect(instance.vote("Topic 1", Options.YES)).to.be.revertedWith("The resident must be defauter");
+  });
+
+  it("Should NOT vote (status)", async function () {
+    const { contract, manager, accounts} = await loadFixture(deployFixture);
+
+    await addResidents(contract, 1, [accounts[1]]);
     await contract.addTopic("Topic 1", "Descripyion 1", Category.DECISION, 0, manager.address);
 
     const instance = contract.connect(accounts[1]);
@@ -361,7 +376,7 @@ describe("Condominium", function () {
   it("Should NOT vote (topic not exists)", async function () {
     const { contract, manager, accounts} = await loadFixture(deployFixture);
 
-    await contract.addResident(accounts[1].address, 2102);
+    await addResidents(contract, 1, [accounts[1]]);
 
     const instance = contract.connect(accounts[1]);
     
@@ -382,7 +397,7 @@ describe("Condominium", function () {
   it("Should NOT vote (Options EMPTY)", async function () {
     const { contract, manager, accounts} = await loadFixture(deployFixture);
 
-    await contract.addResident(accounts[1].address, 2102);
+    await addResidents(contract, 1, [accounts[1]])
     await contract.addTopic("Topic 1", "Descripyion 1", Category.DECISION, 0, manager.address);
     await contract.openVoting("Topic 1");
 
@@ -468,6 +483,26 @@ describe("Condominium", function () {
     const { contract, manager, accounts} = await loadFixture(deployFixture);
    
     await expect(contract.openVoting("Topic 1")).to.be.revertedWith("The topic does not exists");
+  });
+
+  it("Should NOT pay quota (not resident)", async function () {
+    const { contract, manager, accounts} = await loadFixture(deployFixture);
+   
+    await expect(contract.payQuota(21030, { value: ethers.parseEther("0.01") })).to.be.revertedWith("The resident does not exists");
+  });
+
+  it("Should NOT pay quota (wrong value)", async function () {
+    const { contract, manager, accounts} = await loadFixture(deployFixture);
+   
+    await expect(contract.payQuota(2103, { value: ethers.parseEther("0.001") })).to.be.revertedWith("Wrong value");
+  });
+
+  it("Should NOT pay quota (duplicate pay)", async function () {
+    const { contract, manager, accounts} = await loadFixture(deployFixture);
+
+    await contract.payQuota(2103, { value: ethers.parseEther("0.01") })
+   
+    await expect(contract.payQuota(2103, { value: ethers.parseEther("0.01") })).to.be.revertedWith("You cannot pay twice a month");
   });
 });
 

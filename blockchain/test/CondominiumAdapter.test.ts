@@ -1,7 +1,7 @@
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers"; 
 import { expect } from "chai";
-import hre from "hardhat";
+import hre, { ethers } from "hardhat";
 import { CondominiumAdapter } from "../typechain-types";
 
 describe("CondominiumAdapter", function () {
@@ -30,8 +30,11 @@ describe("CondominiumAdapter", function () {
   // função para adicionar n moradores
   async function addResidents(adapter: CondominiumAdapter, count: number, accounts: SignerWithAddress[]) {
     for(let i=1; i <= count; i++) {
-      const residence = (1000 * Math.ceil(i / 25)) + (100 * Math.ceil(i / 5)) + (i - (5 * Math.floor((i-1) / 5)));
-      await adapter.addResident(accounts[i-1].address, residence);
+      const residenceId = (1000 * Math.ceil(i / 25)) + (100 * Math.ceil(i / 5)) + (i - (5 * Math.floor((i-1) / 5)));
+      await adapter.addResident(accounts[i-1].address, residenceId);
+
+      const instance = adapter.connect(accounts[i-1]);
+      await instance.payQuota(residenceId, { value: ethers.parseEther("0.01") });
     }
   }
 
@@ -79,6 +82,12 @@ describe("CondominiumAdapter", function () {
 
     const instance = adapter.connect(accounts[1]);
     await expect(instance.upgrade(contract.getAddress())).to.be.revertedWith("You do not have permission");
+  });
+
+  it("Should NOT upgrade (not address)", async function () {
+    const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
+
+    await expect(adapter.upgrade(ethers.ZeroAddress)).to.be.revertedWith("Invalid address");
   });
 
   it("Should add resident", async function () {
@@ -215,7 +224,7 @@ describe("CondominiumAdapter", function () {
 
     await adapter.upgrade(contract.getAddress());
 
-    await adapter.addResident(accounts[1].address, 1301);
+    await addResidents(adapter, 1, [accounts[1]]);
 
     await adapter.addTopic("Topic 1", "description 1", Category.DECISION, 0, manager.address);  
     await adapter.openVoting("Topic 1");
@@ -255,5 +264,11 @@ describe("CondominiumAdapter", function () {
     const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
 
     await expect(adapter.closeVoting("Topic 1")).to.be.revertedWith("You must upgrade first");
+  });
+
+  it("Should NOT pay quota (not upgrade)", async function () {
+    const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
+
+    await expect(adapter.payQuota(2103, { value: ethers.parseEther("0.01") })).to.be.revertedWith("You must upgrade first");
   });
 });
