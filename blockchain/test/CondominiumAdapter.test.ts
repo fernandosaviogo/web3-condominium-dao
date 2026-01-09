@@ -92,6 +92,12 @@ describe("CondominiumAdapter", function () {
     expect(await contract.isResident(accounts[1].address)).to.equal(true);
   });
 
+  it("Should NOT add resident (not upgrade)", async function () {
+    const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
+
+    await expect(adapter.addResident(accounts[1].address, 1301)).to.be.revertedWith("You must upgrade first");
+  });
+
   it("Should remove resident", async function () {
     const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
     const { contract } = await loadFixture(deployImplementationFixture);
@@ -102,6 +108,12 @@ describe("CondominiumAdapter", function () {
     await adapter.removeResident(accounts[1].address);
 
     expect(await contract.isResident(accounts[1].address)).to.equal(false);
+  });
+
+  it("Should NOT remove resident (not upgrade)", async function () {
+    const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
+
+    await expect(adapter.removeResident(accounts[1].address)).to.be.revertedWith("You must upgrade first");
   });
 
   it("Should set counselor", async function () {
@@ -116,6 +128,12 @@ describe("CondominiumAdapter", function () {
     expect(await contract.counselors(accounts[1].address)).to.equal(true);
   });
 
+  it("Should NOT set counselor (not upgrade)", async function () {
+    const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
+
+    await expect(adapter.setCounselor(accounts[1].address, true)).to.be.revertedWith("You must upgrade first");
+  });
+
   it("Should add topic", async function () {
     const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
     const { contract } = await loadFixture(deployImplementationFixture);
@@ -125,6 +143,33 @@ describe("CondominiumAdapter", function () {
     await adapter.addTopic("Topic 1", "description 1", Category.DECISION, 0, manager.address);    
 
     expect(await contract.topicExists("Topic 1")).to.equal(true);
+  });
+
+  it("Should NOT add topic (not upgrade)", async function () {
+    const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
+
+    await expect(adapter.addTopic("Topic 1", "description 1", Category.DECISION, 0, manager.address)).to.be.revertedWith("You must upgrade first");
+  });
+
+  it("Should edit topic", async function () {
+    const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
+    const { contract } = await loadFixture(deployImplementationFixture);
+
+    await adapter.upgrade(contract.getAddress());
+
+    await adapter.addTopic("Topic 1", "description 1", Category.SPENT, 1, manager.address);  
+
+    await adapter.editTopic("Topic 1", "new description", 2, manager.address);
+
+    const topic = await contract.getTopic("Topic 1");
+
+    expect(topic.description === "new description").to.equal(true);
+  });
+
+  it("Should NOT edit topic (not upgrade)", async function () {
+    const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
+
+    expect(adapter.editTopic("Topic 1", "new description", 2, manager.address)).to.be.revertedWith("You must upgrade first");
   });
 
   it("Should remove topic", async function () {
@@ -139,6 +184,12 @@ describe("CondominiumAdapter", function () {
     expect(await contract.topicExists("Topic 1")).to.equal(false);
   });
 
+  it("Should NOT remove topic (not upgrade)", async function () {
+    const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
+
+    await expect(adapter.removeTopic("Topic 1")).to.be.revertedWith("You must upgrade first");
+  });
+
   it("Should open voting", async function () {
     const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
     const { contract } = await loadFixture(deployImplementationFixture);
@@ -150,6 +201,12 @@ describe("CondominiumAdapter", function () {
     const topic = await contract.getTopic("Topic 1");
 
     await expect(topic.status).to.equal(Status.VOTING);
+  });
+
+  it("Should NOT open voting (not upgrade)", async function () {
+    const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
+
+    await expect(adapter.openVoting("Topic 1")).to.be.revertedWith("You must upgrade first");
   });
 
   it("Should vote", async function () {
@@ -169,6 +226,12 @@ describe("CondominiumAdapter", function () {
     expect(await contract.numberOfVotes("Topic 1")).to.equal(1);
   });
 
+  it("Should NOT vote (not upgrade)", async function () {
+    const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
+
+    await expect(adapter.vote("Topic 1", Options.YES)).to.be.revertedWith("You must upgrade first");
+  });
+
   it("Should close voting", async function () {
     const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
     const { contract } = await loadFixture(deployImplementationFixture);
@@ -186,5 +249,11 @@ describe("CondominiumAdapter", function () {
     const topic = await contract.getTopic("Topic 1");
 
     await expect(topic.status).to.equal(Status.APPROVED);
+  });
+
+  it("Should NOT close voting (not upgrade)", async function () {
+    const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
+
+    await expect(adapter.closeVoting("Topic 1")).to.be.revertedWith("You must upgrade first");
   });
 });

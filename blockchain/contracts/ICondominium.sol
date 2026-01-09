@@ -11,10 +11,9 @@ interface ICondominium {
 
     function setCounselor(address resident, bool isEntering) external;
 
-    // Todo: mudar
     function addTopic(string memory title, string memory description, Lib.Category category, uint amount, address responsible) external;
 
-    //Todo: editar topico
+    function editTopic(string memory topicToEdit, string memory description, uint amount, address responsible) external;
 
     function removeTopic(string memory title) external;
 
