@@ -66,6 +66,8 @@ contract CondominiumAdapter {
     function payQuota(uint16 residentId) external payable upgraded {
         return implementation.payQuota{value: msg.value}(residentId);
     }
-    
-    // Todo: transfer   
+
+    function transfer(string memory topicTitle, uint amount) external upgraded {
+        return implementation.transfer(topicTitle, amount);
+    }
 }

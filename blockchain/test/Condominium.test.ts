@@ -10,7 +10,8 @@ describe("Condominium", function () {
     IDLE = 0, // ocioso
     VOTING = 1, // em votação
     APPROVED = 2, // aprovado
-    DENIED = 3 // negado
+    DENIED = 3, // negado
+    SPENT = 4 // gasto
   }
 
   enum Options {
@@ -504,5 +505,40 @@ describe("Condominium", function () {
    
     await expect(contract.payQuota(2103, { value: ethers.parseEther("0.01") })).to.be.revertedWith("You cannot pay twice a month");
   });
-});
 
+  it("Should NOT transfer (not manager)", async function () {
+    const { contract, manager, accounts} = await loadFixture(deployFixture);
+
+    const instance = contract.connect(accounts[1]);
+    await expect(instance.transfer("Topic 1", 100n)).to.be.revertedWith("Only the manager can do this");
+  });
+
+  it("Should NOT transfer (Insufficient funds)", async function () {
+    const { contract, manager, accounts} = await loadFixture(deployFixture);
+    
+    await expect(contract.transfer("Topic 1", 100n)).to.be.revertedWith("Insufficient funds");
+  });
+
+  it("Should NOT transfer (status)", async function () {
+    const { contract, manager, accounts} = await loadFixture(deployFixture);
+
+    await addResidents(contract, 1, accounts);
+
+    await expect(contract.transfer("Topic 1", 100n)).to.be.revertedWith("Only APPROVED SPENT topics can be used for transfers");
+  });
+
+  it("Should NOT transfer (amount)", async function () {
+    const { contract, manager, accounts} = await loadFixture(deployFixture);
+
+    await addResidents(contract, 10, accounts);
+  
+    await contract.addTopic("Topic 1", "description 1", Category.SPENT, 100, accounts[1].address);
+    await contract.openVoting("Topic 1");
+  
+    await addVotes(contract, 10, accounts);
+  
+    await contract.closeVoting("Topic 1");
+  
+    await expect(contract.transfer("Topic 1", 101)).to.be.revertedWith("The amount must be less or equal the APPROVED topic");
+  });
+});

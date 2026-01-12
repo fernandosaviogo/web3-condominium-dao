@@ -7,7 +7,8 @@ library CondominiumLib {
         IDLE, // ocioso
         VOTING, // em votação
         APPROVED, // aprovado
-        DENIED // negado
+        DENIED, // negado
+        SPENT // gasto
     }// 0,1,2,3
 
     enum Options {

@@ -238,4 +238,17 @@ contract Condominium is ICondominium {
         require(block.timestamp > payments[residentId] + (30 * 24 * 60 * 60), "You cannot pay twice a month");
         payments[residentId] = block.timestamp;
     }
+
+    function transfer(string memory topicTitle, uint amount) external onlyManager {
+        require(address(this).balance >= amount, "Insufficient funds");  // O "address(this)" pega o endereço atual do contrato
+
+        Lib.Topic memory topic = getTopic(topicTitle);
+        require(topic.status == Lib.Status.APPROVED && topic.category == Lib.Category.SPENT, "Only APPROVED SPENT topics can be used for transfers");
+        require(topic.amount >= amount, "The amount must be less or equal the APPROVED topic");
+
+        payable(topic.responsible).transfer(amount);
+
+        bytes32 topicId = keccak256(bytes(topicTitle));
+        topics[topicId].status = Lib.Status.SPENT;
+    }
 }

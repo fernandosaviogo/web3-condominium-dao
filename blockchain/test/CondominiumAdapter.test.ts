@@ -10,7 +10,8 @@ describe("CondominiumAdapter", function () {
     IDLE = 0, // ocioso
     VOTING = 1, // em votação
     APPROVED = 2, // aprovado
-    DENIED = 3 // negado
+    DENIED = 3, // negado
+    SPENT= 4 // gasto
   }
 
   enum Options {
@@ -270,5 +271,41 @@ describe("CondominiumAdapter", function () {
     const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
 
     await expect(adapter.payQuota(2103, { value: ethers.parseEther("0.01") })).to.be.revertedWith("You must upgrade first");
+  });
+
+  it("Should transfer", async function () {
+    const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
+    const { contract } = await loadFixture(deployImplementationFixture);
+
+    await adapter.upgrade(contract.getAddress());
+
+    await addResidents(adapter, 10, accounts);
+
+    await adapter.addTopic("Topic 1", "description 1", Category.SPENT, 100, accounts[1].address);
+    await adapter.openVoting("Topic 1");
+
+    await addVotes(adapter, 10, accounts);
+
+    await adapter.closeVoting("Topic 1");
+
+    const balanceBefore = await ethers.provider.getBalance(contract.getAddress());
+    const balanceWorkerBefore = await ethers.provider.getBalance(accounts[1].address);
+
+    await adapter.transfer("Topic 1", 100n);
+
+    const balanceAfter = await ethers.provider.getBalance(contract.getAddress());
+    const balanceWorkerAfter = await ethers.provider.getBalance(accounts[1].address);
+
+    const topic = await contract.getTopic("Topic 1");
+
+    await expect(balanceAfter).to.equal(balanceBefore - 100n);
+    await expect(balanceWorkerAfter).to.equal(balanceWorkerBefore + 100n);
+    await expect(topic.status).to.equal(Status.SPENT);
+  });
+
+  it("Should NOT transfer (not upgrade)", async function () {
+    const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
+
+    await expect(adapter.transfer("Topic 1", 100n)).to.be.revertedWith("You must upgrade first");
   });
 });
