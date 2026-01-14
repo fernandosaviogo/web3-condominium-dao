@@ -8,8 +8,9 @@ library CondominiumLib {
         VOTING, // em votação
         APPROVED, // aprovado
         DENIED, // negado
+        DELETED, // deletado
         SPENT // gasto
-    }// 0,1,2,3
+    }// 0,1,2,3,4,5
 
     enum Options {
         EMPTY,
@@ -45,4 +46,16 @@ library CondominiumLib {
         uint256 timestamp;
     }
     
+    struct TopicUpdate {
+        bytes32 id;
+        string title;
+        Status status;
+        Category category;
+    }
+
+    struct TransferReceipt {
+        address to;
+        uint amount;
+        string topic;
+    }
 }
