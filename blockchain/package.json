@@ -6,7 +6,9 @@
   "scripts": {
     "test": "npx hardhat test",
     "coverage": "npx hardhat coverage",
-    "compile": "npx hardhat compile"
+    "compile": "npx hardhat compile",
+    "deploy": "npx hardhat run scripts/deploy.ts --networ bsctest",
+    "ignition": "npx hardhat ignition deploy ignition/modules/Condominium.ts --network bsctest"
   },
   "keywords": [],
   "author": "",
@@ -15,6 +17,7 @@
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "^3.1.3",
     "@nomicfoundation/hardhat-toolbox": "^6.1.0",
+    "dotenv": "^17.2.3",
     "ethers": "^6.16.0",
     "hardhat": "^2.26.3",
     "solidity-coverage": "^0.8.17"
