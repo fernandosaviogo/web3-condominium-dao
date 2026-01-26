@@ -31,19 +31,21 @@ describe("CondominiumAdapter", function () {
 
   // função para adicionar n moradores
   async function addResidents(adapter: CondominiumAdapter, count: number, accounts: SignerWithAddress[]) {
+    const skip = count < 20 ? 0 : 1;
     for(let i=1; i <= count; i++) {
       const residenceId = (1000 * Math.ceil(i / 25)) + (100 * Math.ceil(i / 5)) + (i - (5 * Math.floor((i-1) / 5)));
-      await adapter.addResident(accounts[i-1].address, residenceId);
+      await adapter.addResident(accounts[i-skip].address, residenceId);
 
-      const instance = adapter.connect(accounts[i-1]);
+      const instance = adapter.connect(accounts[i-skip]);
       await instance.payQuota(residenceId, { value: ethers.parseEther("0.01") });
     }
   }
 
   // função para adicionar n votos
   async function addVotes(adapter: CondominiumAdapter, count: number, accounts: SignerWithAddress[], deny: boolean = false) {
+    const skip = count < 20 ? 0 : 1;
     for(let i=1; i <= count; i++) {
-      const instance = adapter.connect(accounts[i-1]);
+      const instance = adapter.connect(accounts[i-skip]);
       await instance.vote("Topic 1", deny ? Options.NO : Options.YES);
     }
   }
@@ -92,6 +94,31 @@ describe("CondominiumAdapter", function () {
     await expect(adapter.upgrade(ethers.ZeroAddress)).to.be.revertedWith("Invalid address");
   });
 
+  it("Should get residents", async function () {
+    const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
+    const { contract } = await loadFixture(deployImplementationFixture);
+
+    await adapter.upgrade(contract.getAddress());
+
+    await adapter.addResident(accounts[1].address, 1301);
+    
+    const result = await adapter.getResidents(1, 10);
+
+    expect(result.residents[0][0]).to.equal(accounts[1].address);
+  });
+
+  it("Should NOT get residents (upgrade)", async function () {
+    const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);   
+
+    await expect(adapter.getResidents(1,10)).to.be.revertedWith("You must upgrade first");
+  });
+
+  it("Should NOT get resident (upgrade)", async function () {
+    const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);   
+
+    await expect(adapter.getResident(accounts[0].address)).to.be.revertedWith("You must upgrade first");
+  });
+
   it("Should add resident", async function () {
     const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
     const { contract } = await loadFixture(deployImplementationFixture);
@@ -136,13 +163,64 @@ describe("CondominiumAdapter", function () {
     await adapter.addResident(accounts[1].address, 1301);
     await adapter.setCounselor(accounts[1].address, true);
 
-    expect(await contract.counselors(accounts[1].address)).to.equal(true);
+    const resident = await adapter.getResident(accounts[1].address);
+
+    expect(resident.isCounselor).to.equal(true);
   });
 
   it("Should NOT set counselor (not upgrade)", async function () {
     const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
 
     await expect(adapter.setCounselor(accounts[1].address, true)).to.be.revertedWith("You must upgrade first");
+  });
+
+  it("Should get topic", async function () {
+    const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
+    const { contract } = await loadFixture(deployImplementationFixture);
+
+    await adapter.upgrade(contract.getAddress());
+
+    await adapter.addTopic("Topic 1", "description 1", Category.DECISION, 0, manager.address);
+
+    const topic = await adapter.getTopic("Topic 1");
+
+    expect(topic.title).to.equal("Topic 1");
+  });
+
+  it("Should NOT get topic (not upgrade)", async function () {
+    const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
+
+    await expect(adapter.getTopic("Topic 1")).to.be.revertedWith("You must upgrade first");
+  });
+
+  it("Should get topics", async function () {
+    const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
+    const { contract } = await loadFixture(deployImplementationFixture);
+
+    await adapter.upgrade(contract.getAddress());
+
+    await adapter.addTopic("Topic 1", "description 1", Category.DECISION, 0, manager.address);   
+    
+    const result = await adapter.getTopics(1, 10);
+
+    expect(result.topics[0].title).to.equal("Topic 1");
+  });
+
+  it("Should get topics (empty)", async function () {
+    const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
+    const { contract } = await loadFixture(deployImplementationFixture);
+
+    await adapter.upgrade(contract.getAddress());
+
+    const result = await adapter.getTopics(1, 10);
+
+    expect(result.topics.length).to.equal(10);
+  });
+  
+  it("Should NOT get topics (upgrade)", async function () {
+    const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
+
+    await expect(adapter.getTopics(1, 10)).to.be.revertedWith("You must upgrade first");
   });
 
   it("Should add topic", async function () {
@@ -220,13 +298,38 @@ describe("CondominiumAdapter", function () {
     await expect(adapter.openVoting("Topic 1")).to.be.revertedWith("You must upgrade first");
   });
 
+  it("Should get votes", async function () {
+    const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
+    const { contract } = await loadFixture(deployImplementationFixture);
+
+    await adapter.upgrade(contract.getAddress());
+
+    await addResidents(adapter, 2, [accounts[1]]);
+
+    await adapter.addTopic("Topic 1", "description 1", Category.DECISION, 0, manager.address);  
+    await adapter.openVoting("Topic 1");
+    
+    const instance = adapter.connect(accounts[1]);
+    await instance.vote("Topic 1", Options.YES);
+
+    const votes = await adapter.getVotes("Topic 1")
+
+    expect(votes.length).to.equal(await contract.numberOfVotes("Topic 1"));
+  });
+
+  it("Should NOT get votes (upgrade)", async function () {
+    const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
+
+    await expect(adapter.getVotes("Topic 1")).to.be.revertedWith("You must upgrade first");
+  });
+
   it("Should vote", async function () {
     const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
     const { contract } = await loadFixture(deployImplementationFixture);
 
     await adapter.upgrade(contract.getAddress());
 
-    await addResidents(adapter, 1, [accounts[1]]);
+    await addResidents(adapter, 1, accounts);
 
     await adapter.addTopic("Topic 1", "description 1", Category.DECISION, 0, manager.address);  
     await adapter.openVoting("Topic 1");
@@ -279,7 +382,7 @@ describe("CondominiumAdapter", function () {
     await expect(topic.status).to.equal(Status.DENIED);
   });
 
-  it("Should close voting (CHANGE_MANAGER)", async function () {
+  it("Should close voting (CHANGE_MANAGER, resident)", async function () {
     const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
     const { contract } = await loadFixture(deployImplementationFixture);
 
@@ -288,6 +391,24 @@ describe("CondominiumAdapter", function () {
     await addResidents(adapter, 15, accounts);
 
     await adapter.addTopic("Topic 1", "description 1", Category.CHANGE_MANAGER, 0, accounts[1].address);  
+    await adapter.openVoting("Topic 1");
+
+    await addVotes(adapter, 15, accounts);
+
+    await expect(adapter.closeVoting("Topic 1")).to.emit(adapter, "ManagerChaged").withArgs(accounts[1].address);
+  });
+
+  it("Should close voting (CHANGE_MANAGER, external)", async function () {
+    const { adapter, manager, accounts } = await loadFixture(deployAdapterFixture);
+    const { contract } = await loadFixture(deployImplementationFixture);
+
+    await adapter.upgrade(contract.getAddress());
+
+    await addResidents(adapter, 15, accounts);
+
+    const externalManager = "0x742d35Cc6634C0532925a3b844Bc454e4438f44e";
+    await adapter.addTopic("Topic 1", "description 1", Category.CHANGE_MANAGER, 0, externalManager);  
+
     await adapter.openVoting("Topic 1");
 
     await addVotes(adapter, 15, accounts);

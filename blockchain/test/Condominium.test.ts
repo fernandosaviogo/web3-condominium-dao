@@ -1,4 +1,4 @@
-import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
+import { loadFixture, time } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers"; 
 import { expect } from "chai";
 import hre, { ethers } from "hardhat";
@@ -89,10 +89,24 @@ describe("Condominium", function () {
     await expect(contract.addResident(accounts[1].address, 20002)).to.be.revertedWith("This residence does not exists");
   });
 
-  it("Should remove resident", async function () {
+  it("Should remove resident (latest)", async function () {
     const { contract, manager, accounts} = await loadFixture(deployFixture);
     
     await contract.addResident(accounts[1].address, 2102);
+
+    await contract.removeResident(accounts[1].address);
+
+    expect(await contract.isResident(accounts[1].address)).to.equal(false);
+  });
+
+  it("Should remove resident (first)", async function () {
+    const { contract, manager, accounts} = await loadFixture(deployFixture);
+    
+    await contract.addResident(accounts[1].address, 2102);
+    await contract.addResident(accounts[2].address, 2103);
+    
+    await contract.setCounselor(accounts[2].address, true);
+
     await contract.removeResident(accounts[1].address);
 
     expect(await contract.isResident(accounts[1].address)).to.equal(false);
@@ -118,7 +132,7 @@ describe("Condominium", function () {
     await expect(contract.removeResident(accounts[1].address)).to.be.revertedWith("A counselor cannot be removed");
   });
 
-  it("Should set counselor (true)", async function () {
+  it("Should add counselor", async function () {
     const { contract, manager, accounts} = await loadFixture(deployFixture);
     
     await contract.addResident(accounts[1].address, 2102);
@@ -128,11 +142,13 @@ describe("Condominium", function () {
     const instance = contract.connect(accounts[1]);
     await instance.addResident(accounts[2].address, 2103);
 
-    expect(await contract.counselors(accounts[1].address)).to.equal(true);
+    const resident = await contract.getResident(accounts[1].address)
+
+    expect(resident.isCounselor).to.equal(true);
     expect(await contract.isResident(accounts[2].address)).to.equal(true);
   });
 
-  it("Should set counselor (false)", async function () {
+  it("Should remove counselor (latest)", async function () {
     const { contract, manager, accounts} = await loadFixture(deployFixture);
     
     await contract.addResident(accounts[1].address, 2102);
@@ -141,16 +157,58 @@ describe("Condominium", function () {
 
     await contract.setCounselor(accounts[1].address, false);
 
-    expect(await contract.counselors(accounts[1].address)).to.equal(false);
+    const conselor = await contract.getResident(accounts[1].address);
+
+    expect(conselor.isCounselor).to.equal(false);
   });
 
-  it("Should NOT set counselor (invalid address)", async function () {
+  it("Should remove counselor (first)", async function () {
+    const { contract, manager, accounts} = await loadFixture(deployFixture);
+    
+    await contract.addResident(accounts[1].address, 2102);
+    await contract.addResident(accounts[2].address, 2103);
+
+    await contract.setCounselor(accounts[1].address, true);
+    await contract.setCounselor(accounts[2].address, true);
+
+    await contract.setCounselor(accounts[1].address, false);
+
+    const conselor = await contract.getResident(accounts[1].address);
+
+    expect(conselor.isCounselor).to.equal(false);
+  });
+
+  it("Should NOT remove counselor (invalid address)", async function () {
+    const { contract, manager, accounts} = await loadFixture(deployFixture);
+
+    await expect(contract.setCounselor(ethers.ZeroAddress, false)).to.be.revertedWith("Invalid address");
+  });
+
+  it("Should NOT remove counselor (permission)", async function () {
+    const { contract, manager, accounts} = await loadFixture(deployFixture);
+
+    await contract.addResident(accounts[1].address, 2102);
+
+    await contract.setCounselor(accounts[1].address, true);
+
+    const instance = contract.connect(accounts[1]);
+
+    await expect(instance.setCounselor(accounts[1].address, false)).to.be.revertedWith("Only the manager can do this");
+  });
+
+  it("Should NOT remove counselor (exists)", async function () {
+    const { contract, manager, accounts} = await loadFixture(deployFixture);
+
+    await expect(contract.setCounselor(accounts[1].address, false)).to.be.revertedWith("Counselor not found");
+  });
+
+  it("Should NOT add counselor (invalid address)", async function () {
     const { contract, manager, accounts} = await loadFixture(deployFixture);
 
     await expect(contract.setCounselor(ethers.ZeroAddress, true)).to.be.revertedWith("Invalid address");
   });
 
-  it("Should NOT set counselor (Permission)", async function () {
+  it("Should NOT add counselor (Permission)", async function () {
     const { contract, manager, accounts} = await loadFixture(deployFixture);
     
     await contract.addResident(accounts[1].address, 2102);
@@ -159,10 +217,20 @@ describe("Condominium", function () {
     await expect(instance.setCounselor(accounts[1].address, true)).to.be.revertedWith("Only the manager can do this");
   });
 
-  it("Should NOT set counselor (NOT resident)", async function () {
+  it("Should NOT add counselor (NOT resident)", async function () {
     const { contract, manager, accounts} = await loadFixture(deployFixture);
 
     await expect(contract.setCounselor(accounts[1].address, true)).to.be.revertedWith("The counselor must be a resident");
+  });
+
+  it("Should NOT add counselor (exist)", async function () {
+    const { contract, manager, accounts} = await loadFixture(deployFixture);
+
+    await contract.addResident(accounts[1].address, 2102);
+
+    await contract.setCounselor(accounts[1].address, true);
+
+    await expect(contract.setCounselor(accounts[2].address, false)).to.be.revertedWith("Counselor not found");
   });
 
   it("Should change manager", async function () {
@@ -180,7 +248,7 @@ describe("Condominium", function () {
     expect(await contract.manager()).to.equal(accounts[1].address);
   });
 
-  it("Should chage quota", async function () {
+  it("Should change quota", async function () {
     const { contract, manager, accounts} = await loadFixture(deployFixture);
 
     await addResidents(contract, 20, accounts);
@@ -195,6 +263,17 @@ describe("Condominium", function () {
     await contract.closeVoting("Topic 1");
     
     expect(await contract.monthlyQuota()).to.equal(value);
+  });
+
+  it("Should get topic", async function () {
+    const { contract, manager, accounts} = await loadFixture(deployFixture);
+
+    await contract.addTopic("Topic 1", "Descripition 1", Category.DECISION, 0, manager.address);
+    await contract.addTopic("Topic 2", "Descripition 2", Category.DECISION, 0, manager.address);
+
+    const topic = await contract.getTopic("Topic 2");
+
+    expect(topic.title).to.equal("Topic 2");
   });
   
   it("Should add topic (manager)", async function () {
@@ -289,10 +368,21 @@ describe("Condominium", function () {
     await expect(contract.addTopic("Topic 1", "Descripyion 1", Category.DECISION, 0, manager.address)).to.be.revertedWith("This topic already exists");
   });
 
-  it("Should remove topic (manager)", async function () {
+  it("Should remove topic (latest)", async function () {
     const { contract, manager, accounts} = await loadFixture(deployFixture);
 
     await contract.addTopic("Topic 1", "Descripyion 1", Category.DECISION, 0, manager.address);
+
+    await contract.removeTopic("Topic 1");
+
+    expect(await contract.topicExists("Topic 1")).to.equal(false);
+  });
+
+  it("Should remove topic (first)", async function () {
+    const { contract, manager, accounts} = await loadFixture(deployFixture);
+
+    await contract.addTopic("Topic 1", "Descripyion 1", Category.DECISION, 0, manager.address);
+    await contract.addTopic("Topic 2", "Descripyion 2", Category.DECISION, 0, manager.address);
 
     await contract.removeTopic("Topic 1");
 
@@ -484,6 +574,26 @@ describe("Condominium", function () {
     const { contract, manager, accounts} = await loadFixture(deployFixture);
    
     await expect(contract.openVoting("Topic 1")).to.be.revertedWith("The topic does not exists");
+  });
+
+  it("Should pay quota", async function () {
+    const { contract, manager, accounts} = await loadFixture(deployFixture);
+
+    await contract.addResident(accounts[1].address, 2102);
+
+    const instance = contract.connect(accounts[1]);
+    await instance.payQuota(2102, { value: ethers.parseEther("0.01") })
+
+    const resident = await contract.getResident(accounts[1].address);
+
+    // Pay again, 30 days after
+    await time.setNextBlockTimestamp(parseInt(`${(Date.now() / 1000) + (31 * 24 * 60 * 60)}`));
+
+    await instance.payQuota(2102, { value: ethers.parseEther("0.01") });
+    const residentAfter = await contract.getResident(accounts[1].address);
+   
+    const THIRTY_DAYS = 30n * 24n * 60n * 60n;
+    await expect(residentAfter.nextPayment).to.equal(resident.nextPayment + THIRTY_DAYS);
   });
 
   it("Should NOT pay quota (not resident)", async function () {
