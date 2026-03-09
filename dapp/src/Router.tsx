@@ -2,6 +2,9 @@ import { Route, BrowserRouter, Routes, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Topics from "./pages/Topics";
 import Transfer from "./pages/Transfer";
+import Settings from "./pages/Settings";
+import Residents from "./pages/residents";
+import ResidentPage from "./pages/residents/ResidentPage";
 import { Profile, doLogout } from "./services/Web3Service";
 import type { JSX } from "react";
 
@@ -26,6 +29,30 @@ function ManagerRoute({children} : Props) {
     }
 }
 
+function CouncilRoute({children} : Props) {
+    const isAuth = localStorage.getItem("account") !== null;
+    const isResident = parseInt(localStorage.getItem("profile") || "0") === Profile.RESIDENT;
+
+    if(isAuth && !isResident) {
+        return children;
+    } else {
+        doLogout();
+        <Navigate to="/" />
+    }
+}
+
+/*function ResidentRoute({children} : Props) {
+    const isAuth = localStorage.getItem("account") !== null;
+    const isResident = parseInt(localStorage.getItem("profile") || "0") === Profile.RESIDENT;
+
+    if(isAuth && !isResident) {
+        return children;
+    } else {
+        doLogout();
+        <Navigate to="/" />
+    }
+}*/
+
 
 function Router() {
 
@@ -40,10 +67,31 @@ function Router() {
                 } />
 
                 <Route path="/transfer" element={
-                    <ManagerRoute>
+                   <ManagerRoute>
                         <Transfer />
                     </ManagerRoute>
+                } /> 
+
+                <Route path="/settings" element={
+                   <ManagerRoute>
+                        <Settings />
+                    </ManagerRoute>
+                } /> 
+                <Route path="/residents/edit/:wallet" element={
+                   <ManagerRoute>
+                        <ResidentPage />
+                    </ManagerRoute>
                 } />
+                <Route path="/residents/new" element={
+                   <CouncilRoute>
+                        <ResidentPage />
+                    </CouncilRoute>
+                } /> 
+                <Route path="/residents" element={
+                   <CouncilRoute>
+                        <Residents />
+                    </CouncilRoute>
+                } /> 
             </Routes>
         </BrowserRouter>
     )

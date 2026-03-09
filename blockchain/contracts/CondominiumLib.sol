@@ -30,20 +30,22 @@ library CondominiumLib {
     struct Topic {
         string title;
         string description;
-        Status status;
+        address responsible;
+
+        uint amount;
         uint256 createDate; // criação da votação
         uint256 startDate; // inicio da votação
         uint256 endDate; // fim da votação
+        
+        Status status;
         Category category;
-        uint amount;
-        address responsible;
     }
 
     struct Vote {
         address resident;
         uint16 residence;
         Options option;
-        uint256 timestamp;
+        uint64 timestamp;
     }
     
     struct TopicUpdate {
@@ -61,10 +63,10 @@ library CondominiumLib {
 
     struct Resident {
         address wallet;
+        uint nextPayment;
         uint16 residence;
         bool isCounselor;
         bool isManager;
-        uint nextPayment;
     }
 
     struct ResidentPage {

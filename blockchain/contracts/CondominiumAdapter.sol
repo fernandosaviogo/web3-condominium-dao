@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import "./ICondominium.sol";
+import { CondominiumLib as Lib } from "./CondominiumLib.sol";
 
 contract CondominiumAdapter {
 
@@ -11,7 +12,7 @@ contract CondominiumAdapter {
     //EVENTES
     event QuotaChanged(uint amount);
 
-    event ManagerChaged(address manager);
+    event ManagerChanged(address manager);
 
     event TopicChange(bytes32 indexed topicId, string title, Lib.Status indexed status);
 
@@ -82,7 +83,7 @@ contract CondominiumAdapter {
 
         if(topic.status == Lib.Status.APPROVED) {
             if(topic.category == Lib.Category.CHANGE_MANAGER)
-                emit ManagerChaged(implementation.getManager());
+                emit ManagerChanged(implementation.getManager());
             else if (topic.category == Lib.Category.CHANGE_QUOTA) {
                 emit QuotaChanged(implementation.getQuota());
         }

@@ -5,12 +5,15 @@ import { CondominiumLib as Lib } from "./CondominiumLib.sol";
 
 interface ICondominium {
 
-    function addResident(address resident, uint16 resideceId) external;
-
+    // Residents
+    function addResident(address resident, uint16 residenceId) external;
     function removeResident(address resident) external;
-
     function setCounselor(address resident, bool isEntering) external;
 
+    function getResident(address resident) external view returns (Lib.Resident memory);
+    function getResidents(uint page, uint pageSize) external view returns (Lib.ResidentPage memory);
+
+    // Topics
     function addTopic(string memory title, 
         string memory description, 
         Lib.Category category, 
@@ -26,28 +29,29 @@ interface ICondominium {
     ) external returns (Lib.TopicUpdate memory);
 
     function removeTopic(string memory title) external returns (Lib.TopicUpdate memory);
-
     function openVoting(string memory title) external returns (Lib.TopicUpdate memory);
-
-    function vote(string memory title, Lib.Options option) external;
-
     function closeVoting(string memory title) external returns (Lib.TopicUpdate memory);
 
-    function payQuota(uint16 residentId) external payable;
-
-    function transfer(string memory topicTitle, uint amount) external returns (Lib.TransferReceipt memory);   
-
-    function getManager() external view returns (address);
-
-    function getQuota() external view returns (uint);
-
-    function getResident(address resident) external view returns (Lib.Resident memory);
-
-    function getResidents(uint page, uint pageSize) external view returns (Lib.ResidentPage memory);
-
     function getTopic(string memory title) external view returns (Lib.Topic memory);
-
     function getTopics(uint page, uint pageSize) external view returns (Lib.TopicPage memory);
 
+    // Voting
+    function vote(string memory title, Lib.Options option) external;
     function getVotes(string memory topicTitle) external view returns (Lib.Vote[] memory);
+
+    // Payments
+    function payQuota(uint16 residenceId) external payable;
+
+    // Treasury
+    function transfer(string memory topicTitle, uint amount) external returns (Lib.TransferReceipt memory);   
+
+    // Config
+    function getManager() external view returns (address);
+    function getQuota() external view returns (uint);
+
+    
+
+    
+
+    
 }

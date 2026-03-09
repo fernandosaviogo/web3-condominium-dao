@@ -9,6 +9,12 @@ import { CondominiumLib as Lib } from "./CondominiumLib.sol";
 
 contract Condominium is ICondominium {
 
+    /* Lista de eventos para o frontend */ 
+    event TopicCreated(bytes32 id, string title);
+    event VoteCast(bytes32 id, address voter, Lib.Options option);
+    event QuotaPaid(uint16 residence, uint amount);
+    event TransferExecuted(address to, uint amount);
+
     address public manager;  // Ownable
     uint public monthlyQuota = 0.01 ether; // Mensalidade do condominio
 
@@ -16,7 +22,7 @@ contract Condominium is ICondominium {
     Lib.Resident[] public residents;
     mapping (address => uint) private _residentIndex; // Wallet => array index
 
-    address[] public counselors; // conselheiro => true
+    mapping(address => bool) public counselors; // conselheiro => true
 
     mapping (uint16 => uint) private _nextPayment; // Unidade/apartamento => proximo pagamento (timestamp em segundos)
 
@@ -40,21 +46,21 @@ contract Condominium is ICondominium {
     }
 
     modifier onlyManager() {
-        require(tx.origin == manager, "Only the manager can do this");
+        require(msg.sender == manager, "Only the manager can do this");
         _;
     }
 
     modifier onlyCouncil() {
-        require(tx.origin == manager || _isCounselor(tx.origin), "Only the manager or the council can do this");
+        require(msg.sender == manager || _isCounselor(msg.sender), "Only the manager or the council can do this");
         _;
     }
     
     modifier onlyResidents() {
-        if(tx.origin == manager){
-            require(isResident(tx.origin), "Only the manager or the residents can do this");
+        require(isResident(msg.sender), "Only the manager or the residents can do this");
 
-            Lib.Resident memory resident = _getResident(tx.origin);
-            require(block.timestamp <= resident.nextPayment, "The resident must be defauter");
+        Lib.Resident memory resident = _getResident(msg.sender);
+        if(resident.nextPayment > 0) {
+            require(block.timestamp <= resident.nextPayment, "Resident is overdue");
         }
         _;
     }
@@ -76,6 +82,7 @@ contract Condominium is ICondominium {
 
     function addResident(address resident, uint16 residenceId) external onlyCouncil validAddress(resident) { // resideceId ex: 1101
         require(residenceExists(residenceId), "This residence does not exists");
+        require(!isResident(resident), "Already a resident");
 
         residents.push(Lib.Resident({
             wallet: resident,
@@ -90,6 +97,7 @@ contract Condominium is ICondominium {
 
     function removeResident(address resident) external onlyManager {
         require(!_isCounselor(resident), "A counselor cannot be removed");
+        require(isResident(resident), "Not a resident");
         uint index = _residentIndex[resident];
 
         if(index != residents.length - 1) {
@@ -139,38 +147,27 @@ contract Condominium is ICondominium {
 
     // COUNSELOR FUNCTIONS
     function _isCounselor(address resident) private view returns (bool) {
-        for(uint i=0; i < counselors.length; i++){
-            if(counselors[i] == resident) return true;
-        }
-        return false;
+        return counselors[resident];
     }
 
     function _addCounselor(address counselor) private onlyManager validAddress(counselor) {
         require(isResident(counselor), "The counselor must be a resident");
-        counselors.push(counselor);
+        require(!counselors[counselor], "Already counselor");
+
+        counselors[counselor] = true;
+
         residents[_residentIndex[counselor]].isCounselor = true;
     }
 
     function _removeCounselor(address counselor) private onlyManager validAddress(counselor) {
-        uint index = 1000000;
-        for(uint i=0; i < counselors.length; i++) {
-            if(counselors[i] == counselor) {
-                index = 1;
-                break;
-            }
-        }
+        require(counselors[counselor], "Not a counselor");
 
-        require(index != 1000000, "Counselor not found");
+        counselors[counselor] = false;
 
-        if(index != counselors.length - 1) {
-            address latest = counselors[counselors.length - 1];
-            counselors[index] = latest;
-        }
-        counselors.pop();
         residents[_residentIndex[counselor]].isCounselor = false;
     }
 
-    function setCounselor(address resident, bool isEntering) external {
+    function setCounselor(address resident, bool isEntering) external onlyManager{
         if(isEntering) {
             _addCounselor(resident);
         }
@@ -190,7 +187,7 @@ contract Condominium is ICondominium {
 
         if(index < topics.length) {
             Lib.Topic memory result = topics[index];
-            if(index > 0 || keccak256(bytes(result.title)) == topicId)
+            if(index < topics.length && keccak256(bytes(result.title)) == topicId)
                 return result;
         }
 
@@ -226,11 +223,12 @@ contract Condominium is ICondominium {
             status: Lib.Status.IDLE,
             category: category,
             amount: amount,
-            responsible: responsible != address(0) ? responsible : tx.origin
+            responsible: responsible != address(0) ? responsible : msg.sender
         });
 
         _topicIndex[keccak256(bytes(title))] = topics.length;
         topics.push(newTopic);
+        emit TopicCreated(keccak256(bytes(title)), title);
     }
 
     function removeTopic(string memory title) external onlyManager returns (Lib.TopicUpdate memory){
@@ -323,23 +321,24 @@ contract Condominium is ICondominium {
         require(topic.createDate > 0, "The topic does not exists");
         require(topic.status == Lib.Status.VOTING, "Only VOTING topics can be voted");
         
-        uint16 residence = residents[_residentIndex[tx.origin]].residence;
+        uint16 residence = residents[_residentIndex[msg.sender]].residence;
         bytes32 topicId = keccak256(bytes(title));
 
-        Lib.Vote[] memory votes = _votings[topicId];
+        Lib.Vote[] storage votes = _votings[topicId];
 
-        for(uint8 i=0; i < votes.length; i++){
+        for(uint i=0; i < votes.length; i++){
             require(votes[i].residence != residence, "The residence should vote only once");
         }
 
         Lib.Vote memory newVote = Lib.Vote ({
             residence: residence,
-            resident: tx.origin,
+            resident: msg.sender,
             option: option,
-            timestamp: block.timestamp
+            timestamp: uint64(block.timestamp)
         });
 
         _votings[topicId].push(newVote);
+        emit VoteCast(topicId, msg.sender, option);
     }       
 
     function closeVoting(string memory title) external onlyManager returns (Lib.TopicUpdate memory) {
@@ -366,7 +365,7 @@ contract Condominium is ICondominium {
         uint8 denied = 0;
         uint8 abstentions = 0;
         bytes32 topicId = keccak256(bytes(title));
-        Lib.Vote[] memory votes = _votings[topicId];
+        Lib.Vote[] storage votes = _votings[topicId];
         
         for (uint8 i=0; i < votes.length; i++) {
             if(votes[i].option == Lib.Options.YES)
@@ -428,6 +427,8 @@ contract Condominium is ICondominium {
             _nextPayment[residenceId] = block.timestamp + _thirtyDays;
         else
             _nextPayment[residenceId] += _thirtyDays;
+        
+        emit QuotaPaid(residenceId, msg.value);
     }
 
     function transfer(string memory topicTitle, uint amount) external onlyManager returns (Lib.TransferReceipt memory) {
@@ -437,11 +438,15 @@ contract Condominium is ICondominium {
         require(topic.status == Lib.Status.APPROVED && topic.category == Lib.Category.SPENT, "Only APPROVED SPENT topics can be used for transfers");
         require(topic.amount >= amount, "The amount must be less or equal the APPROVED topic");
 
-        payable(topic.responsible).transfer(amount);
+        //(original) payable(topic.responsible).transfer(amount);
+        (bool success, ) = payable(topic.responsible).call{value: amount}("");
+        require(success, "Transfer failed");
 
         bytes32 topicId = keccak256(bytes(topicTitle));
         uint index = _topicIndex[topicId];
         topics[index].status = Lib.Status.SPENT;
+
+        emit TransferExecuted(topic.responsible, amount);
 
         return Lib.TransferReceipt ({
             to: topic.responsible,
