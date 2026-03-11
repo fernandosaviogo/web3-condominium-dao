@@ -1,5 +1,6 @@
 import { ethers } from "ethers";
 import ABI from "./ABI.json"
+import { doApiLogin } from "./ApiService";
 
 //const ADAPTER_ADDRESS =  `${process.env.VITE_ADAPTER_ADDRESS}`;
 const ADAPTER_ADDRESS = import.meta.env.VITE_ADAPTER_ADDRESS as string;
@@ -36,6 +37,7 @@ async function getContractSigner(provider?: ethers.BrowserProvider) : Promise<et
 export type LoginResult = {
     account: string;
     profile: Profile;
+    token: string;
 };
 
 export type Resident = {
@@ -87,7 +89,17 @@ export async function doLogin() : Promise<LoginResult> {
     }
     localStorage.setItem("account", accounts[0]);
 
+    // Assinatura digital para segurança do login
+    const signer = provider.getSigner();
+    const timestamp = Date.now();
+    const message = `Authenticating to condominium. Timestamp: ${timestamp}`;
+    const secret = (await signer).signMessage(message);
+
+    const token = await doApiLogin(account[0], await secret, timestamp);
+    localStorage.setItem("token", token);
+
     return {
+        token,
         account: account,
         profile: parseInt(localStorage.getItem("profile") || "0")
     } as LoginResult;
