@@ -7,6 +7,7 @@ import errorMiddleware from './middlewares/errorMiddleware.js';
 
 import residentRouter from './routers/residentRouter.js'
 import authControler from './controllers/authControler.js'
+import authenticationMiddleware from './middlewares/authenticationMiddleware.js';
 
 const app = express();
 
@@ -21,7 +22,7 @@ app.use(express.json());
 
 app.post('/login/', authControler.doLogin);
 
-app.use('/residents/', residentRouter);
+app.use('/residents/', authenticationMiddleware, residentRouter);
 
 app.use('/', (req: Request, res: Response, next: NextFunction) => {
     res.send(`Healt Check`)

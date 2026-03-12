@@ -1,9 +1,9 @@
 import type { Request, Response, NextFunction } from "express";
 import residentRepository from "src/repositories/residentRepository.js";
 import { ethers } from "ethers";
-import { jwt } from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 
-type LoginDate = {
+export type LoginDate = {
     timestamp: number;
     wallet: string;
     secret: string;
