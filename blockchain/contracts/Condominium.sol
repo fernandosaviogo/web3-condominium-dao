@@ -100,6 +100,9 @@ contract Condominium is ICondominium {
         require(isResident(resident), "Not a resident");
         uint index = _residentIndex[resident];
 
+        if(index == 0)
+            require(residents[index].wallet == resident, "The resident does not exists");
+
         if(index != residents.length - 1) {
             Lib.Resident memory latest = residents[residents.length - 1];
             residents[index] = latest;

@@ -4,8 +4,9 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import Footer from "../../components/Footer";
 import Sidebar from "../../components/Sidebar";
 import Alert from "../../components/Alert";
-import ResidentRow from "../../components/ResidentRow";
+import ResidentRow from "./ResidentRow";
 import { getResidents, removeResident, type Resident } from "../../services/Web3Service";
+import { deleteApiResident } from "../../services/ApiService";
 import Loader from "../../components/Loader";
 import Pagination from "../../components/Pagination";
 
@@ -50,8 +51,11 @@ function Residents() {
         setIsLoading(true);
         setMessage("");
         setError("");
-        removeResident(wallet)
-            .then(tx => navigate("/residents?tx=" + tx.hash))
+        const promiseBlockchain = removeResident(wallet)
+        const promiseBackend = deleteApiResident(wallet)
+
+        Promise.all([promiseBackend, promiseBlockchain])
+            .then(tx => navigate("/residents?tx=" + tx[0].hash))
             .catch(err => {
                 setIsLoading(false);
                 setError(err?.reason || err?.message || "Transaction failed");

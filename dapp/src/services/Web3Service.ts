@@ -108,6 +108,7 @@ export async function doLogin() : Promise<LoginResult> {
 export function doLogout() {
     localStorage.removeItem("account");
     localStorage.removeItem("profile");
+    localStorage.removeItem("token");
 }
 
 export async function getAddress() : Promise<string> {

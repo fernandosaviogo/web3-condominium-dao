@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import { isManager, type Resident } from "../services/Web3Service";
+import { isManager, type Resident } from "../../services/Web3Service";
 
 type Props = {
     data: Resident;

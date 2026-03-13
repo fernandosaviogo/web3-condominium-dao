@@ -3,8 +3,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import Footer from "../../components/Footer";
 import Sidebar from "../../components/Sidebar";
 import SwitchInput from "../../components/SwitchInput";
-import { type Resident, addResident, doLogin, getResident, isManager, isResident, setCounselor } from "../../services/Web3Service";
+import { Profile, type Resident, addResident, doLogin, getResident, isManager, isResident, setCounselor } from "../../services/Web3Service";
 import Loader from "../../components/Loader";
+import { type ApiResident, getApiResident, addApiResident, updateApiResident } from "../../services/ApiService";
 
 function ResidentPage() {
 
@@ -15,6 +16,7 @@ function ResidentPage() {
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [message, setMessage] = useState<string>("");
     const [resident, setResident] = useState<Resident>({} as Resident);
+    const [apiResident, setApiResident] = useState<ApiResident>({} as ApiResident);
 
     useEffect(() => {
         if (isResident()) {
@@ -24,10 +26,13 @@ function ResidentPage() {
 
         if (wallet) {
             setIsLoading(true);
-            getResident(wallet)
-                .then(resident => {
-                    setIsLoading(false);
-                    setResident(resident);
+
+            const blockchainPromise = getResident(wallet)
+            const backendPromise = getApiResident(wallet)
+            Promise.all([blockchainPromise, backendPromise])
+                .then(results => {
+                    setResident(results[0])
+                    setApiResident(results[1])
                 })
                 .catch(err => {
                     setMessage(err.message);
@@ -40,16 +45,29 @@ function ResidentPage() {
         setResident(prevState => ({ ...prevState, [evt.target.id]: evt.target.value }));
     }
 
+    function onApiResidentChange(evt: React.ChangeEvent<HTMLInputElement>) {
+        setApiResident(prevState => ({ ...prevState, [evt.target.id]: evt.target.value }));
+    }
+
     function btnSaveClick() {
         if (resident) {
             setMessage("Connecting to wallet...wait...");
             if(!wallet) {
-                addResident(resident.wallet, resident.residence)
-                    .then(tx => navigate("/residents?tx=" + tx.hash))
+                const promiseBlockchain = addResident(resident.wallet, resident.residence);
+                const promiseBackend = addApiResident({ ...apiResident, profile: Profile.RESIDENT, wallet: resident.wallet });
+                Promise.all([promiseBlockchain, promiseBackend])
+                    .then(results => navigate("/residents?tx=" + results[0].hash))
                     .catch(err => setMessage(err.message));
             }else {
-                setCounselor(resident.wallet, resident.isCounselor)
-                    .then(tx => navigate("/residents?tx=" + tx.hash))
+                const profile = resident.isCounselor ? Profile.COUNSELOR : Profile.RESIDENT;
+                const promises = [];
+                if(apiResident.profile !== profile) {
+                    promises.push(setCounselor(resident.wallet, resident.isCounselor))
+                }
+                
+                promises.push(updateApiResident(wallet, {...apiResident, profile, wallet}));
+                Promise.all(promises)
+                    .then(results => navigate("/residents?tx=" + wallet))
                     .catch(err => setMessage(err.message));
             }
         }
@@ -81,7 +99,7 @@ function ResidentPage() {
                                     <div className="bg-gradient-primary shadow-primary border-radius-lg pt-4 pb-3">
                                         <h6 className="text-white text-capitalize ps-3">
                                             <i className="material-icons opacity-10 me-2">group</i>
-                                            New Resident
+                                            {wallet ? "Edit " : "New "} Resident
                                         </h6>
                                     </div>
                                 </div>
@@ -107,6 +125,36 @@ function ResidentPage() {
                                                 <label htmlFor="residence">Residence Id: (block+apartment)</label>
                                                 <div className="input-group input-group-outline">
                                                     <input className="form-control" type="number" id="residence" value={resident.residence || ""} placeholder="1101" onChange={onResidentChange} disabled={!!wallet}></input>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="row ms-3">
+                                        <div className="col-md-6 mb-3">
+                                            <div className="form-group">
+                                                <label htmlFor="name">Name:</label>
+                                                <div className="input-group input-group-outline">
+                                                    <input className="form-control" type="text" id="name" value={apiResident.name || ""} onChange={onApiResidentChange}></input>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="row ms-3">
+                                        <div className="col-md-6 mb-3">
+                                            <div className="form-group">
+                                                <label htmlFor="phone">Phone:</label>
+                                                <div className="input-group input-group-outline">
+                                                    <input className="form-control" type="tel" id="phone" value={apiResident.phone || ""} placeholder="+5551123456789" onChange={onApiResidentChange}></input>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="row ms-3">
+                                        <div className="col-md-6 mb-3">
+                                            <div className="form-group">
+                                                <label htmlFor="email">E-mail:</label>
+                                                <div className="input-group input-group-outline">
+                                                    <input className="form-control" type="email" id="email" value={apiResident.email || ""} placeholder="name@company.com" onChange={onApiResidentChange}></input>
                                                 </div>
                                             </div>
                                         </div>
