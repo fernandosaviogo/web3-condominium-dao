@@ -5,9 +5,9 @@ const instance = axios.create({
         "Content-Type": "application/json",
         "Authorization": localStorage.getItem("token") || ""
     }
-})
+});
 
-instance.interceptors.response.use{
+instance.interceptors.response.use(
     response => response,
     error => {
         if(error.response && [401,403].includes(error.response.status)){
@@ -17,10 +17,10 @@ instance.interceptors.response.use{
             localStorage.removeItem("token");
 
             if(window.location.pathname !== "/")
-                return window.location.hef = "/";
+                return window.location.href = "/";
         }
         return Promise.reject(error);
     }
-}
+)
 
 export default instance;
