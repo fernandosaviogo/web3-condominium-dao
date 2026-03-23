@@ -48,11 +48,15 @@ export type Resident = {
     nextPayment: number;
 }
 
-export function isManager(): boolean {
+export function hasManagerPermissions(): boolean {
     return parseInt(localStorage.getItem("profile") || "0") === Profile.MANAGER;
 }
 
-export function isResident(): boolean {
+export function hasCouselorPermissions(): boolean {
+    return parseInt(localStorage.getItem("profile") || "0") !== Profile.RESIDENT;
+}
+
+export function hasResidentPermissions(): boolean {
     return parseInt(localStorage.getItem("profile") || "0") === Profile.RESIDENT;
 }
 
@@ -164,5 +168,75 @@ export async function setCounselor(wallet: string, isEntering: boolean): Promise
     if(getProfile() !== Profile.MANAGER) throw new Error(`You do not have prmission.`);
     const contract = await getContractSigner();
     const tx = await contract.setCounselor(wallet, isEntering);
+    return tx;
+}
+
+export enum Category {
+    DECISION = 0,
+    SPENT = 1,
+    CHANGE_QUOTA = 2,
+    CHANGE_MANAGER = 3
+}
+
+export enum Status {
+    IDLE = 0,
+    VOTING = 1,
+    APPROVED = 2,
+    DENIED = 3,
+    DELETED = 4,
+    SPENT = 5
+}
+
+export type Topic = {
+    title: string;
+    description: string;
+    category: Category;
+    amount: ethers.BigNumberish;
+    responsible: String;
+    status?: Status;
+    createdDate?: number;
+    StartDate?: number;
+    endDate?: number;
+}
+
+export type TopicPage = {
+    topics: Topic[];
+    total: number;
+}
+export async function getTopic(title: string) : Promise<Topic> {
+    const contract = getContract();
+    return await contract.getTopic(title) as Topic;
+}
+
+export async function getTopics(page: number = 1, pageSize: number = 10) : Promise<TopicPage> {
+    const contract = getContract();
+    const result = await contract.getTopics(page, pageSize) as TopicPage;
+    const topics = result.topics.filter(t => t.title)
+
+    return {
+        topics,
+        total: Number(result.total)
+    } as TopicPage;
+}
+
+export async function removeTopic(title: string): Promise<ethers.ContractTransactionResponse> {
+    if(getProfile() !== Profile.MANAGER) throw new Error(`You do not have prmission.`);
+    const contract = await getContractSigner();
+    const tx = await contract.removeTopic(title);
+    return tx;
+}
+
+export async function addTopic(topic: Topic): Promise<ethers.ContractTransactionResponse> {
+    const contract = await getContractSigner();
+    topic.amount = ethers.toBigInt(topic.amount || 0);
+    const tx = await contract.addTopic(topic.title, topic.description, topic.category, topic.amount, topic.responsible);
+    return tx;
+}
+
+export async function editTopic(topicToEdit: string, description: string, amount: ethers.BigNumberish, responsible: string): Promise<ethers.ContractTransactionResponse> {
+    if(getProfile() !== Profile.MANAGER) throw new Error(`You do not have prmission.`);
+    const contract = await getContractSigner();
+    amount = ethers.toBigInt(amount || 0);
+    const tx = await contract.aditTopic(topicToEdit, description, amount, responsible);
     return tx;
 }
