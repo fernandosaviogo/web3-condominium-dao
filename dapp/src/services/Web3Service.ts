@@ -240,3 +240,30 @@ export async function editTopic(topicToEdit: string, description: string, amount
     const tx = await contract.aditTopic(topicToEdit, description, amount, responsible);
     return tx;
 }
+
+export async function openVoting(topic: Topic): Promise<ethers.ContractTransactionResponse> {
+    if(getProfile() !== Profile.MANAGER) throw new Error(`You do not have prmission.`);
+    const contract = await getContractSigner();
+    const tx = await contract.openVoting(topic);
+    return tx;
+}
+
+export async function closeVoting(topic: Topic): Promise<ethers.ContractTransactionResponse> {
+    if(getProfile() !== Profile.MANAGER) throw new Error(`You do not have prmission.`);
+    const contract = await getContractSigner();
+    const tx = await contract.closeVoting(topic);
+    return tx;
+}
+
+export async function payQuota(residenceId: number, value: ethers.BigNumberish): Promise<ethers.ContractTransactionResponse> {
+    if(getProfile() !== Profile.RESIDENT) throw new Error(`You do not have prmission.`);
+    const contract = await getContractSigner();
+    const tx = await contract.payQuota(residenceId, { value });
+    return tx;
+}
+
+export async function getQuota() : Promise<ethers.BigNumberish> {
+    const contract = getContract();
+    const tx = await contract.getQuota();
+    return tx;
+}
