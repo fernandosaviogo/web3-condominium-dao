@@ -267,3 +267,29 @@ export async function getQuota() : Promise<ethers.BigNumberish> {
     const tx = await contract.getQuota();
     return tx;
 }
+
+export enum Options {
+    EMPTY = 0,
+    YES = 1,
+    NO = 2,
+    ABSTENTION = 3
+}
+
+export type Vote = {
+    resident: string;
+    residence: number;
+    timesTamp: number;
+    option: Options;
+}
+
+export async function getVotes(topic: string) : Promise<Vote[]> {
+    const contract = getContract();
+    const tx = await contract.getVotes(topic);
+    return tx;
+}
+
+export async function vote(topic: Topic, option: Options): Promise<ethers.ContractTransactionResponse> {
+    const contract = await getContractSigner();
+    const tx = await contract.vote(topic, option);
+    return tx;
+}

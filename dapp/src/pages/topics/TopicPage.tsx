@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Footer from "../../components/Footer";
 import Sidebar from "../../components/Sidebar";
-import { Category, Status, addTopic, editTopic, getTopic, hasManagerPermissions, closeVoting, openVoting, type Topic, } from "../../services/Web3Service";
+import { vote, getVotes, Category, Status, addTopic, editTopic, getTopic, hasManagerPermissions, closeVoting, openVoting, type Topic, type Vote, Options } from "../../services/Web3Service";
 import Loader from "../../components/Loader";
 import TopicCategory from "../../components/TopicCategory";
 import TopicFiles from "./TopicFiles";
@@ -16,6 +16,7 @@ function TopicPage() {
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [message, setMessage] = useState<string>("");
     const [topic, setTopic] = useState<Topic>({} as Topic);
+    const [votes, setVotes] = useState<Vote[]>([]);
 
     useEffect(() => {
         if (title) {
@@ -24,6 +25,13 @@ function TopicPage() {
             getTopic(title)
                 .then(topic => {
                     setTopic(topic)
+                    if(topic.status === Status.VOTING)
+                        return getVotes(topic.title);
+                    else
+                        setIsLoading(false);
+                })
+                .then(votes => {
+                    setVotes(votes || []);
                     setIsLoading(false);
                 })
                 .catch(err => {
@@ -109,6 +117,36 @@ function TopicPage() {
             closeVoting(title)
                 .then(tx => navigate(`/topics?tx=${tx.hash}`))
                 .catch(err => setMessage(err.message))
+        }
+    }
+
+    function showVoting() {
+        return ![Status.DELETED, Status.IDLE].includes(topic.status || Status.DELETED) && votes && votes.length;
+    }
+
+    function alreadyVoted() {
+        return votes && votes.length && votes.find(v => v.resident.toLocaleUpperCase() === (localStorage.getItem("account") || "").toUpperCase());
+    }
+
+    function btnVoteClick(option: Options) {
+        setMessage("Connecting to MetaMask...wait...");
+        if(topic && topic.status === Status.VOTING && title) {
+
+            let text = "";
+            switch(option){
+                case Options.YES: text = "YES"; break;
+                case Options.NO: text = "NO"; break;
+                default: text = "ABSTENTION";
+            }
+
+            if(window.confirm(`Are you sure to vote as ${text}?`)) {
+                vote(title, option)
+                    .then(tx => navigate("topics?tx=" + tx.hash))
+                    .catch(err => setMessage(err.message));
+            }
+            else {
+                setMessage("");
+            }
         }
     }
 
@@ -261,11 +299,27 @@ function TopicPage() {
                                             )
                                             : <></>
                                     }
+                                    {
+                                        showVoting()
+                                            ? (
+                                                <div className="row ms-3">
+                                                    <div className="col-md-6 mb-3">
+                                                        <div className="form-group">
+                                                            <label htmlFor="voting">Voting: </label>
+                                                            <div className="input-group input-group-outline">
+                                                                <input className="form-control" type="text" id="voting" value={`${votes.length} votes (${votes.filter(v => v.option === Options.YES).length} YES)`} disabled={true}></input>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )
+                                            : <></>
+                                    }
 
                                     <div className="row- ms-3">
                                         <div className="col-md-12 mb-3">
                                             {
-                                                !title || (isManager() && topic.status === Status.IDLE)
+                                                !title || (hasManagerPermissions() && topic.status === Status.IDLE)
                                                     ? (
                                                         <button className="btn bg-gradient-dark me-2" onClick={btnSaveClick}>
                                                             <i className="material-icons opacity-10 me-2">save</i>
@@ -290,6 +344,36 @@ function TopicPage() {
                                                         <button className="btn btn-danger me-2" onClick={btnCloseVoteClick}>
                                                             <i className="material-icons opacity-10 me-2">lock</i>
                                                             Close Voting
+                                                        </button>
+                                                    )
+                                                    : <></>
+                                            }
+                                            {
+                                                !hasManagerPermissions() && topic.status === Status.VOTING && !alreadyVoted()
+                                                    ? (
+                                                        <button className="btn btn-success me-2" onClick={() => btnVoteClick(Options.YES)}>
+                                                            <i className="material-icons opacity-10 me-2">thump_up</i>
+                                                            Vote Yes
+                                                        </button>
+                                                    )
+                                                    : <></>
+                                            }
+                                            {
+                                                !hasManagerPermissions() && topic.status === Status.VOTING && !alreadyVoted()
+                                                    ? (
+                                                        <button className="btn btn-warning me-2" onClick={() => btnVoteClick(Options.ABSTENTION)}>
+                                                            <i className="material-icons opacity-10 me-2">thump_up_down</i>
+                                                            Don`t Vote
+                                                        </button>
+                                                    )
+                                                    : <></>
+                                            }
+                                            {
+                                                !hasManagerPermissions() && topic.status === Status.VOTING && !alreadyVoted()
+                                                    ? (
+                                                        <button className="btn btn-danger me-2" onClick={() => btnVoteClick(Options.NO)}>
+                                                            <i className="material-icons opacity-10 me-2">thump_down</i>
+                                                            Vote No
                                                         </button>
                                                     )
                                                     : <></>
