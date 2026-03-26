@@ -2,10 +2,11 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Footer from "../../components/Footer";
 import Sidebar from "../../components/Sidebar";
-import { vote, getVotes, Category, Status, addTopic, editTopic, getTopic, hasManagerPermissions, closeVoting, openVoting, type Topic, type Vote, Options } from "../../services/Web3Service";
+import { transfer, vote, getVotes, Category, Status, addTopic, editTopic, getTopic, hasManagerPermissions, closeVoting, openVoting, type Topic, type Vote, Options } from "../../services/Web3Service";
 import Loader from "../../components/Loader";
 import TopicCategory from "../../components/TopicCategory";
 import TopicFiles from "./TopicFiles";
+import { ethers } from "ethers";
 
 function TopicPage() {
 
@@ -147,6 +148,19 @@ function TopicPage() {
             else {
                 setMessage("");
             }
+        }
+    }
+
+    function btnTansferClick() {
+        setMessage("Connecting to MetaMask...wait...");
+        if(topic && topic.status === Status.APPROVED && title) {
+            if(window.confirm(`Are you sure to transfer ETH ${ethers.formatEther(topic.amount)} for ${topic.responsible}`)) {
+                transfer(title, topic.amount)
+                    .then(tx => navigate("/topics?tx=" + tx.hash))
+                    .catch(err => setMessage(err.message));
+            }
+            else
+                setMessage("");
         }
     }
 
@@ -374,6 +388,16 @@ function TopicPage() {
                                                         <button className="btn btn-danger me-2" onClick={() => btnVoteClick(Options.NO)}>
                                                             <i className="material-icons opacity-10 me-2">thump_down</i>
                                                             Vote No
+                                                        </button>
+                                                    )
+                                                    : <></>
+                                            }
+                                            {
+                                                hasManagerPermissions() && topic.status === Status.APPROVED && topic.category === Category.SPENT
+                                                    ? (
+                                                        <button className="btn btn-dark me-2" onClick={btnTansferClick}>
+                                                            <i className="material-icons opacity-10 me-2">payments</i>
+                                                            Transfer Payment
                                                         </button>
                                                     )
                                                     : <></>

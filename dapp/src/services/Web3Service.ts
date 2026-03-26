@@ -288,8 +288,22 @@ export async function getVotes(topic: string) : Promise<Vote[]> {
     return tx;
 }
 
+export async function getBalance(address?: string) : Promise<string> {
+    if(!address) address = await getAddress();
+    const provider = getProvider();
+    const balance = await provider.getBalance(address);
+    return ethers.formatEther(balance);
+}
+
 export async function vote(topic: Topic, option: Options): Promise<ethers.ContractTransactionResponse> {
     const contract = await getContractSigner();
     const tx = await contract.vote(topic, option);
+    return tx;
+}
+
+export async function transfer(topic: Topic, amount: ethers.BigNumberish): Promise<ethers.ContractTransactionResponse> {
+    if(getProfile() !== Profile.MANAGER) throw new Error(`You do not have prmission.`);
+    const contract = await getContractSigner();
+    const tx = await contract.transfer(topic, amount);
     return tx;
 }

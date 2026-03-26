@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getAddress, upgrade } from "../services/Web3Service";
+import { getAddress, upgrade, getBalance } from "../services/Web3Service";
 import Sidebar from "../components/Sidebar";
 import Footer from "../components/Footer";
 import Loader from "../components/Loader";
@@ -8,7 +8,8 @@ function Settings() {
 
     const [contract, setContract] = useState<string>("");
     const [message, setMessage] = useState<string>("");
-    const [isLoading, setIsLoading] = useState<boolean>(true);
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [balance, setBalance] = useState<string>("");
 
     /* Função para tratamento de menssagem de erro */
     function getErrorMessage(error: unknown): string {
@@ -24,19 +25,21 @@ function Settings() {
     }
 
     useEffect(() => {
-        async function load() {
-            try {
-                const address = await getAddress();
+        setIsLoading(true);
+        getAddress()
+            .then(address => {
                 setContract(address);
-            } catch (err: unknown) {
-                setMessage(getErrorMessage(err));
-            } finally {
+                return getBalance();
+            })
+            .then(balance => {
+                setBalance(balance);
                 setIsLoading(false);
-            }
-        }
-
-        load();
-    }, []);
+            })
+            .catch(err => {
+                setMessage(err.message);
+                setIsLoading(false)
+            })
+    }, [])
 
     async function btnSaveClick() {
         try {
@@ -76,6 +79,14 @@ function Settings() {
                                             ? <Loader/>
                                             : <></>
                                     }
+                                    <div className="row ms-3">
+                                        <div className="col-md-6 mb-3">
+                                            <div className="form-group">
+                                                <label htmlFor="balance">Condominium balance (ETH): </label>
+                                                <input className="form-control" type="number" id="balance" value={balance} disabled={true}></input>
+                                            </div>
+                                        </div>
+                                    </div>
                                     <div className="row ms-3">
                                         <div className="col-md-6 mb-3">
                                             <div className="form-group">
